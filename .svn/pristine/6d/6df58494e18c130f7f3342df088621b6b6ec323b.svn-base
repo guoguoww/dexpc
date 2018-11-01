@@ -1,0 +1,599 @@
+<template>
+    <div id="Content">
+        <!---->
+        <div id="Detail" langs="1">
+            <div class="details">
+                <div class="det-head">
+                    <span>订单</span>
+                    <i>&gt;</i>
+                    <em>订单详情</em>
+                </div>
+                <div class="det-cont">
+                    <div class="det-single clearfix">
+                        <div class="det-single-left">
+                            <span>您向 {{order.nickName}} {{buyer()?'买入':'卖出'}} {{order.currency}}</span>
+                            <em> 订单号：{{order.serialNo}}</em>
+                        </div>
+                        <div class="det-single-right">
+                            <span>状态：</span>
+                            <em>{{codeformat(order.status)}} </em>
+                        </div>
+                    </div>
+                    <div class="det-content clearfix">
+                        <div class="det-left">
+                            <div class="det-left-tab">
+                                <ul class="clearfix">
+                                    <li>
+                                        <span>交易金额</span>
+                                        <p>{{order.orderPrice}}
+                                            <em>CNY</em>
+                                        </p>
+                                    </li>
+                                    <li>
+                                        <span>数量</span>
+                                        <p>{{order.orderQuantity}} {{order.currency}}</p>
+                                    </li>
+                                    <li>
+                                        <span>价格</span>
+                                        <p>{{order.unitPrice}} CNY/{{order.currency}}</p>
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="det-left-list">
+                                <span>{{buyer()?'卖家':'我的'}}收款账户</span>
+                                <div class="det-list">
+                                    <div class="det-list-cont" v-if="order.bankNo">
+                                        <span>银行卡号：{{order.bankNo}}（{{order.sellerName}}）</span>
+                                        <p>开户银行：{{order.bankName}} {{order.openBankName}}</p>
+                                        <p class="det-remarks">晚上十点后的订单，次日一早处理</p>
+                                    </div>
+                                    <div class="nothing" v-else>
+                                        <span>无银行账号</span>
+                                    </div>
+                                </div>
+                                <div class="det-list">
+                                    <div class="det-list-cont clearfix" v-if="order.aliPayAccount">
+                                        <span>支付宝账号： {{order.aliPayAccount}}（{{order.sellerName}}）</span>
+                                        <p class="det-remarks">五万以上请分笔转账！！！</p>
+                                        <div class="det-code">
+                                            <i class="iconfont icon-iconfonterweima"></i>
+                                            <span>扫描付款</span>
+                                            <div class="code-img"><img :src="imgurl(order.aliPayQrCode)"></div>
+                                        </div>
+                                    </div>
+                                    <div class="nothing" v-else>
+                                        <span>无支付宝账号</span>
+                                    </div>
+                                </div>
+                                <div class="det-list">
+                                    <div class="det-list-cont clearfix" v-if="order.wxPayAccount">
+                                        <span>微信账号： {{order.wxPayAccount}}（{{order.sellerName}}）</span>
+                                        <p class="det-remarks">五万以上请分笔转账！！！</p>
+                                        <div class="det-code">
+                                            <i class="iconfont icon-iconfonterweima"></i>
+                                            <span>扫描付款</span>
+                                            <div class="code-img"><img :src="imgurl(order.wxPayQrCode)"></div>
+                                        </div>
+                                    </div>
+                                    <div class="nothing" v-else>
+                                        <span>无微信账号</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="det-right">
+                            <div class="det-explain" v-if="buyer()">
+                                <span>交易说明:</span>
+                                <p>1、订单有效时间为15分钟，请您及时在有效期内付款并点击【我已付款】 按钮 ，卖家确认后将会释放数字币给您；</p>
+                                <p>2、如果买方当日取消订单达3次，将会被限制当日买入功能；</p>
+                                <p>3、开始交易后数字币由中心托管，请放心下单。</p>
+                            </div>
+                            <div class="det-explain" v-if="buyer()">
+                                <span>交易备注：</span>
+                                <p>1、付款时请备注（付款参考号）以加快确认速度；</p>
+                                <p>2、请勿在汇款备注内填写比特币、BTC、ETH、USDT等数字币有关字样，防止您的汇款被银行拦截，甚至账号被冻结。</p>
+                            </div>
+                            <div class="det-explain" v-else>
+                                <span>交易说明:</span>
+                                <p>卖家交易说明</p>
+                                <p></p>
+                                <p></p>
+                            </div>
+                            <template v-if='buyer()'>
+                                <div class="det-time" v-if="!timeout||order.status==0">
+                                    <h6>付款参考号：
+                                        <em>{{order.id}}</em>
+                                    </h6>
+                                    <p>（请务必将付款参考号备注在付款信息中，便于卖家确认款项）</p>
+                                    <div class="det-time-cont">
+                                        <span>剩余付款时间:</span>
+                                        <!---->
+                                        <i>{{minutes}}</i>
+                                        <em>:</em>
+                                        <i>{{seconds}}</i>
+                                    </div>
+                                    <div class="det-time-bur">
+                                        <input type="button" value="取消交易" @click="open('cancel','如果您已向卖家付款,请不要取消订单!','取消订单')">
+                                        <input type="button" value="我已付款" class="time-input"  @click="open('pay','请确认支付后,确认付款','温馨提示')">
+                                    </div>
+                                </div>
+                            </template>
+                            <template v-else>
+                                <div class="det-time" >
+                                    <h6>付款参考号：
+                                        <em>{{order.id}}</em>
+                                    </h6>
+                                    <!-- <p>（请务必将付款参考号备注在付款信息中，便于卖家确认款项）</p> -->
+                                    <h6>付款参考号：
+                                        <span>{{order.createTime}}</span>
+                                    </h6>
+
+                                    <div class="det-time-bur">
+                                        <input type="button" value="取消交易"  v-if="order.status==0" @click="open('cancel','如果您已收款,请不要取消订单!','取消订单')">
+                                        <input type="button" value="确认收款" class="time-input" v-if="order.status==1" @click="open('collect','请确认收到买家款项再确认收款','温馨提示')">
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!---->
+            <!---->
+            <!---->
+        </div>
+        <Modal
+        v-model="modal.show"
+        :title='modal.title'
+        @on-ok="ok"
+        class-name="vertical-center-modal"
+       >
+        <!-- @on-cancel="" -->
+        <h6>{{modal.content}}</h6>
+    </Modal>
+    </div>
+</template>
+
+<script type="">
+export default {
+    name: "order",
+    data() {
+        return {
+            order: {}, //订单
+            minutes: 0, //剩余付款时间
+            seconds: 0,
+            timeout: false, //超时
+            timeouttimer: null,//超时后判断收款的定时器
+            modal:{//对话框配置
+                show:false,//是否显示
+                content:'',//内容
+                title:'',//标题
+                method:''//调用的方法
+            },
+        };
+    },
+    components: {},
+    created() {
+        this.getorder();
+    },
+    destroyed () {
+        clearInterval(this.timer)
+        this.timer=null
+        clearInterval(this.timeouttimer)
+        this.timeouttimer
+    },
+    methods: {
+        //打开确认框
+        open(method,content,title){
+            this.modal.show=true
+            this.modal.method=method
+            this.modal.content=content
+            this.modal.title=title
+
+        },
+        //方法调用
+        ok(){
+            console.log('ok');
+            eval(`this.${this.modal.method}()`)
+        },
+        //获取订单
+        getorder() {
+            this.$axios
+                .post(
+                    `api/trade/c2c/get_order?tradeId=${this.$route.params.id}`
+                )
+                .then(res => {
+                    if (!res.data.errorCode) {
+                        this.order = res.data.data;
+                        this.settimer();
+                        if (
+                            this.order.status == 0 &&
+                            this.buyer() &&
+                            !this.timeout
+                        ) {
+                            //如果未付款 而且是买家 而且没超时
+                            this.settimer();
+                            return;
+                        }
+                        if (
+                            this.timeouttimer &&
+                            this.order.status != 0 &&
+                            this.buyer()
+                        ) {
+                            clearInterval(this.timeouttimer);
+                            this.timeouttimer;
+                        }
+                        this.timeout = true;
+                    } else {
+                        this.$router.push("/");
+                    }
+                });
+        },
+        //判断是否是买家
+        buyer() {
+            var id = JSON.parse(this.$cookie.get("_auth")).userId; //用户
+            var orderid = this.order.firstPartyId; //交易员id
+            if (this.order.direction == 0) {
+                //对用户来说买入
+                if (id == orderid) {
+                    //卖家==交易员
+                    return true;
+                } else {
+                    //买家==用户
+                    return false;
+                }
+            } else {
+                //对用户来说卖出
+                if (id == orderid) {
+                    //买家==交易员
+                    return false;
+                } else {
+                    //卖家==用户
+                    return true;
+                }
+            }
+        },
+        //状态
+        codeformat(status) {
+            if (status == 0) {
+                return "未付款";
+            } else if (status == 1) {
+                return "已付款";
+            } else if (status == 2) {
+                return "已完成";
+            } else if (status == 3) {
+                return "已取消";
+            }
+        },
+        //获取图片
+        imgurl(id) {
+            if (process.env.NODE_ENV == "production") {
+                return `${process.env.BASEURL}/api/image/display/${id}`;
+            }
+            return `http://192.168.0.222:8080/gmq_front/api/image/display/${id}`;
+        },
+        //获取剩余付款时间
+        gettime() {
+            var t =
+                new Date(this.order.createTime).getTime() +
+                15 * 60 * 1000 -
+                new Date().getTime();
+            console.log(t);
+            if (t > 0) {
+                var hours = Math.floor(t / 3600000);
+                this.minutes = Math.floor((t % 3600000) / 60000);
+                this.seconds = Math.floor((t % 60000) / 1000);
+                // console.log(hours,minutes,seconds);
+            } else {
+                clearInterval(this.timer);
+                this.timer = null;
+                this.timeout = true;
+                this.timeouttimer = setInterval(() => {
+                    this.getorder();
+                }, 1000);
+            }
+        },
+        //设置定时器
+        settimer() {
+            if (this.timer) {
+                clearInterval(this.timer);
+                this.timer = null;
+                this.gettime();
+            }
+            this.gettime();
+            this.timer = setInterval(() => {
+                this.gettime();
+            }, 1000);
+        },
+        //付款成功
+        pay() {
+            this.$axios.post(`api/trade/c2c/user_payment?tradeId=${this.order.id}`)
+                .then(res => {
+                    if (!res.data.errorCode) {
+                        this.$Notice.open({title:"确认付款成功"});
+                        this.getorder();
+                    }
+                })
+                .catch(err => {});
+        },
+        //完成订单 确认收款
+        collect(){
+            this.$axios.post(`api/trade/c2c/order_transaction?tradeId=${this.order.id}`).then(res=>{
+                    if (!res.data.errorCode) {
+                        this.$Notice.open({title:'确认收款款成功'})
+                        this.getorder()
+                    }
+                }).catch(err=>{
+
+                })
+        },
+        // 取消订单
+        cancel(){
+            this.$axios.post(`api/trade/c2c/cancel_order?tradeId=${this.order.id}`).then(res=>{
+                    if (!res.data.errorCode) {
+                        this.$Notice.open({title:'订单已取消'})
+                        this.getorder()
+                    }
+                })
+        }
+    }
+};
+</script>
+
+<style scoped lang="less">
+
+#Content {
+    min-height: calc(100% - 578px);
+    #Detail {
+        width: 1200px;
+        margin: 0 auto;
+        .details {
+            padding-bottom: 30px;
+            .det-head {
+                height: 46px;
+                font-size: 16px;
+                padding-top: 34px;
+                color: #242653;
+                > span {
+                    display: inline-block;
+                    border-left: 3px solid #242653;
+                    line-height: 20px;
+                    padding-left: 14px;
+                }
+            }
+            .det-cont {
+                background: #fff;
+                border-radius: 8px;
+                padding: 30px;
+                .det-single {
+                    padding: 0 40px;
+                    height: 40px;
+                    line-height: 40px;
+                    border-radius: 4px;
+                    background: #e9eef8;
+                    .det-single-left {
+                        float: left;
+                        font-size: 15px;
+                        color: #2a2a2a;
+                        > span {
+                            padding-right: 30px;
+                        }
+                    }
+                    .det-single-right {
+                        float: right;
+                        font-size: 15px;
+                        color: #2a2a2a;
+                        > em {
+                            color: #ff0125;
+                        }
+                    }
+                }
+                .det-content {
+                    padding: 15px 0;
+                    .det-left {
+                        float: left;
+                        width: 54%;
+                        padding-right: 4%;
+                        border-right: 1px solid #bdbdbd;
+                        box-sizing: border-box;
+                        .det-left-tab {
+                            padding: 30px 0;
+                            li {
+                                width: 33.3%;
+                                border-right: 1px solid #bdbdbd;
+                                box-sizing: border-box;
+                                text-align: center;
+                                padding: 5px 0;
+                                float: left;
+                                > span {
+                                    font-size: 14px;
+                                    padding-bottom: 20px;
+                                    display: inline-block;
+                                }
+                                > p {
+                                    font-size: 15px;
+                                    > em {
+                                        font-size: 15px;
+                                        color: #2a2a2a;
+                                        padding-left: 5px;
+                                    }
+                                }
+                            }
+                            li:first-child > p {
+                                color: #4e96e1;
+                                font-size: 19px;
+                            }
+                        }
+                        .det-left-list {
+                            > span {
+                                font-size: 16px;
+                                color: #4a475f;
+                                padding-left: 10px;
+                            }
+                            .det-list {
+                                border-bottom: 1px solid #bdbdbd;
+                                color: #4a475f;
+                                padding: 18px 0;
+                                .det-list-cont {
+                                    padding-left: 54px;
+                                    line-height: 22px;
+                                    font-size: 15px;
+                                    position: relative;
+                                    .det-remarks {
+                                        font-size: 12px;
+                                        color: #6c6c6c;
+                                    }
+                                    .det-code {
+                                        float: right;
+                                        width: 120px;
+                                        margin-right: 10px;
+                                        height: 30px;
+                                        border: 1px solid #bdbdbd;
+                                        border-radius: 4px;
+                                        text-align: center;
+                                        line-height: 30px;
+                                        cursor: pointer;
+                                        position: absolute;
+                                        top: 5px;
+                                        right: 0;
+                                        z-index: 1;
+                                        .code-img {
+                                            position: absolute;
+                                            top: -100px;
+                                            right: 130px;
+                                            z-index: 1;
+                                            width: 173px;
+                                            height: 230px;
+                                            padding: 5px;
+                                            background: #fff;
+                                            border-radius: 4px;
+                                            box-shadow: 0 3px 9px 0
+                                                rgba(69, 112, 128, 0.14);
+                                            display: none;
+                                            > img {
+                                                width: 100%;
+                                                height: 100%;
+                                            }
+                                        }
+                                    }
+                                    .det-code:hover .code-img {
+                                        display: block;
+                                    }
+                                }
+                                .nothing {
+                                    text-indent: 55px;
+                                    height: 44px;
+                                    line-height: 44px;
+                                    font-size: 16px;
+                                    color: #bdbdbd;
+                                }
+                            }
+                            .det-list:nth-child(2) .det-list-cont {
+                                background-image: url(../../../static/imgs/bank.png);
+                                background-position: 15px 19px;
+                                background-repeat: no-repeat;
+                                background-size: 26px 22px;
+                            }
+                            .det-list:nth-child(3) .det-list-cont {
+                                background-image: url(../../../static/imgs/ali.png);
+                                background-position: 17px 9px;
+                                background-repeat: no-repeat;
+                                background-size: 24px 24px;
+                            }
+                            .det-list:nth-child(4) .det-list-cont {
+                                background-image: url(../../../static/imgs/wx.png);
+                                background-position: 17px 9px;
+                                background-repeat: no-repeat;
+                                background-size: 24px 24px;
+                            }
+                        }
+                    }
+                    .det-right {
+                        float: left;
+                        width: 43%;
+                        padding-left: 2.5%;
+                        .det-time {
+                            padding-left: 15px;
+                            > h6 {
+                                font-size: 16px;
+                                color: #6c6c6c;
+                                line-height: 40px;
+                                > em {
+                                    font-size: 19px;
+                                    color: #000;
+                                }
+                            }
+                            > p {
+                                font-size: 14px;
+                                color: #6c6c6c;
+                            }
+                            .det-time-cont {
+                                height: 100px;
+                                text-align: center;
+                                line-height: 100px;
+                                width: 80%;
+                                > span {
+                                    font-size: 16px;
+                                    color: #2a2a2a;
+                                    padding-right: 15px;
+                                }
+                                > i {
+                                    width: 34px;
+                                    height: 34px;
+                                    border-radius: 4px;
+                                    background: #00c481;
+                                    font-size: 20px;
+                                    line-height: 32px;
+                                    color: #fff;
+                                    display: inline-block;
+                                }
+                                > em {
+                                    width: 24px;
+                                    color: #00c481;
+                                    font-size: 20px;
+                                    display: inline-block;
+                                }
+                            }
+                            .det-time-bur {
+                                padding-top: 20px;
+                                text-align: center;
+                                width: 80%;
+                                > input {
+                                    width: 108px;
+                                    height: 34px;
+                                    border: 1px solid #d8d8d8;
+                                    cursor: pointer;
+                                    outline: none;
+                                    border-radius: 4px;
+                                    background: #fff;
+                                    margin-left: 100px;
+                                }
+                                > input:first-child {
+                                    margin-left: 0;
+                                }
+                                .time-input {
+                                    background: #4e96e1 !important;
+                                    border: 1px solid #4e96e1 !important;
+                                    color: #fff !important;
+                                }
+                            }
+                        }
+                        .det-explain {
+                            padding-left: 15px;
+                            color: #6c6c6c;
+                            > span {
+                                line-height: 50px;
+                                font-size: 16px;
+                            }
+                            > p {
+                                font-size: 14px;
+                                line-height: 20px;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+</style>

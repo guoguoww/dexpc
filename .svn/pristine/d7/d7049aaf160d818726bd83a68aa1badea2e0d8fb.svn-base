@@ -1,0 +1,457 @@
+<template>
+  <div class="">
+    <div id="Index">
+      <div class="tab clearfix">
+        <div class="tab-but">
+          <span :class="{'tab-active':tabactive === 1}" @click="switchTab(1)">我的广告</span>
+          <span :class="{'tab-active':tabactive === 0}" @click="switchTab(0)">等待交易</span>
+        </div>
+        <div class="tab-right">
+          <a href="javascript:;" @click="releaseAdv()">发布广告</a>
+          <a href="javascript:;" v-if="!userData.applyTraderStatus || userData.applyTraderStatus === '3'" @click="openApplyFor()">申请交易员</a>
+          <span v-if="userData.applyTraderStatus === '1'">已申请</span>
+          <span v-if="userData.applyTraderStatus === '2'">已是交易员</span>
+        </div>
+      </div>
+      <div class="index">
+        <div class="index-conts clearfix" style="transform: translateX(0px);">
+          <div class="index-tab-list">
+            <div class="index-table">
+              <!--我的广告-->
+              <table border="0" cellspacing="0" cellpadding="0" v-if="tabactive === 1">
+                <tr>
+                  <th>时间</th>
+                  <th>方向</th>
+                  <th>币种</th>
+                  <th>价格</th>
+                  <th>数量</th>
+                  <th>限额</th>
+                  <th>状态</th>
+                  <th>操作</th>
+                </tr>
+                <tr  v-if="advertList.data.length > 0" v-for="item in advertList.data">
+                  <td>{{item.createTime}}</td>
+                  <td>{{item.direction === '0' ? '买入' : '卖出'}}</td>
+                  <td>{{item.currencyCode}}</td>
+                  <td>{{item.price}}</td>
+                  <td>{{item.number}}</td>
+                  <td>{{item.minQuota}}-{{item.maxQuota}}</td>
+                  <td>{{item.status === '0' ? '发布中': (item.status === '1' ? '完成':'已撤单')}}</td>
+                  <td>
+                    <button @click="undo(item.id)" v-if="item.status === '0'">撤单</button>
+                  </td>
+                </tr>
+              </table>
+              <!--等待交易-->
+              <table border="0" cellspacing="0" cellpadding="0" v-if="tabactive === 0">
+                <tr>
+                  <th>交易用户</th>
+                  <th>方向</th>
+                  <th>币种</th>
+                  <th>操作</th>
+                </tr>
+                <tr v-if="advertList.data.length > 0" v-for="item in advertList.data">
+                  <td>{{item.nickName}}</td>
+                  <td>{{item.direction === '0' ? '买入' : '卖出'}}</td>
+                  <td>{{item.currency}}</td>
+                  <td>
+                    <router-link :to="'/order/' + item.id">交易</router-link>
+                  </td>
+                </tr>
+              </table>
+              <div class="none" v-if="advertList.data.length === 0">
+                <p>暂无内容...</p>
+              </div>
+            </div>
+            <div class="index-page">
+              <Page ref="page" :total="advertList.total" :page-size="pages.rows" size="small" show-total show-elevator @on-change="pageChange" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- 申请交易员 -->
+    <div class="trader-prpmpt" :class="{traderPopup}">
+      <div class="trader-header">
+        <span>申请交易员</span>
+        <i class="iconfont icon-iconfontguanbi" @click="traderPopup = false"></i>
+      </div>
+      <ul class="trader-content">
+        <li>
+          <h6> 步骤一：按要求准备下述材料</h6>
+          <p> 1.请下载《申请资料模板》，按要求填写申请资料。</p>
+        </li>
+        <li>
+          <h6> 步骤二：发送申请邮件</h6>
+          <p> 请将以上申请资料发送邮件至 <mark>{{traderParams.email}}</mark>，邮件主题为“申请成为交易员”</p>
+        </li>
+        <li>
+          <h6> 步骤三：提交申请</h6>
+          <p> 发送邮件后，请在本页面点击“确认申请”按钮，提交申请。并同意冻结 <mark>{{traderParams.freezeMoney}}个{{traderParams.currencyCode}}</mark>作为交易员保证金。提交完成后，您即可发布广告。</p>
+        </li>
+        <li>
+          <h6> 步骤四：资料审核</h6>
+          <p> 我们将在72小时内对您的申请资料进行审核，请保持通讯畅通，我们会主动与您取得联系。</p>
+        </li>
+      </ul>
+      <div class="btns">
+        <div class="checkbox">
+          <Checkbox v-model="agreed"> &nbsp 同意冻结 <mark>{{traderParams.freezeMoney}}个{{traderParams.currencyCode}}</mark> 作为保证金</Checkbox>
+        </div>
+        <div class="apply agreed" v-if="agreed" @click="applyFor()">
+          <span>申请</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script type="">
+  export default {
+    name: "advert",
+    data() {
+      return {
+        userData: {},
+        traderParams: {},
+        tabactive: 1, //默认选择
+        advertList: { //广告列表
+          data: [],
+          total: 0,
+        },
+        pages: { //分页
+          start: 0,
+          rows: 6,
+        },
+        traderPopup: false, //申请交易员抽屉
+        agreed: false, //是否同意交易员条件
+      }
+    },
+    created() {
+      this.getUserData()
+      this.getAdvList()
+    },
+    methods: {
+      getUserData() {  //获取用户信息
+        this.$axios.post("/api/user/query_active_user")
+          .then(res => {
+            if(res.data.errorCode === 0) {
+              this.userData = res.data.data;
+            }
+          })
+      },
+      openApplyFor() { //申请交易员
+        this.traderPopup = !this.traderPopup;
+        if(this.traderPopup === true) {
+          this.getTraderParams()
+        }
+      },
+      getTraderParams() { //获取申请交易员参数
+        this.$axios.post("/api/user/traderparams")
+          .then(res => {
+            if(res.data.errorCode === 0) {
+              this.traderParams = res.data.data;
+            }
+          })
+      },
+      releaseAdv() { //跳转发布广告检测
+        if(this.userData.authStatusAdvanced !== '2') {
+          this.$Message.warning('请先进行高级认证');
+          return;
+        }
+        if(this.userData.applyTraderStatus !== '2') {
+          this.$Message.warning('请先申请交易员');
+          return;
+        }
+        this.$router.push('/releaseAdvert')
+      },
+      switchTab(num) { //切换tab
+        this.tabactive = num;
+        this.pages.start = 0;
+        //让当前页面的分页重置为第一页
+        this.$refs.page.currentPage = 1;
+        //避免闪烁
+        this.advertList.data = [];
+        this.advertList.total = 0;
+
+        if(this.tabactive === 1) {
+          this.getAdvList()
+        }
+        if(this.tabactive === 0) {
+          this.getTraList()
+        }
+      },
+      getAdvList() { //获取我的广告
+        this.$axios({
+          url: "/api/advertisement/myadversement",
+          method: "post",
+          params: this.pages,
+        }).then(res => {
+          if(res.data.errorCode === 0) {
+            this.advertList.data = res.data.page.data;
+            this.advertList.total = res.data.page.total
+          }
+        })
+      },
+      getTraList() { //获取等待交易
+        this.$axios({
+          url: "/api/advertisement/query/trade",
+          method: "post",
+          params: this.pages,
+        }).then(res => {
+          if(res.data.errorCode === 0) {
+            this.advertList.data = res.data.page.data;
+            this.advertList.total = res.data.page.total
+          }
+        })
+      },
+      pageChange(page) { //支付列表分页
+        this.pages.start = this.pages.rows * (page-1);
+        if(this.tabactive === 1) {
+          this.getAdvList()
+        }
+        if(this.tabactive === 0) {
+          this.getTraList()
+        }
+      },
+      undo(id) { //撤销订单
+        if(confirm("确认撤单？")) {
+          this.$axios({
+            url: '/api/advertisement/cancel_advertisement',
+            method: "post",
+            data: {
+              id: id
+            }
+          }).then(res => {
+            if(res.data.errorCode === 0) {
+              this.$Message.success('撤销成功');
+              this.getAdvList();
+            }
+          })
+        }
+      },
+      applyFor() { //申请交易员
+        this.$axios.post("/api/user/applytrader")
+          .then(res => {
+            if (res.data.errorCode === 0) {
+              this.$Message.success('申请成功 请等待审核结果')
+              this.traderPopup = false;
+              this.getUserData();
+            }
+          }).catch(err => {
+
+        });
+      },
+    },
+  };
+</script>
+
+<style scoped lang="less">
+  * {
+    box-sizing: content-box;
+  }
+  #Index {
+    width: 1200px;
+    margin: 0 auto;
+    padding: 36px 0;
+    .tab {
+      height: 70px;
+      border-bottom: 1px solid #c9c9c9;
+      margin-bottom: 26px;
+      /*广告列表标题*/
+      .tab-but {
+        padding-left: 30px;
+        width: 50%;
+        float: left;
+        box-sizing: border-box;
+        > span {
+          width: 158px;
+          height: 44px;
+          border-radius: 4px;
+          line-height: 44px;
+          background: #fff;
+          display: inline-block;
+          cursor: pointer;
+          border: 1px solid #e8e8e8;
+          margin-right: 22px;
+          text-align: center;
+        }
+        .tab-active {
+          background: #4895ea !important;
+          border: 1px solid #4895ea !important;
+          color: #fff;
+        }
+        span:last-child {
+          margin-right: 0;
+        }
+      }
+      /*申请交易员 发布广告*/
+      .tab-right {
+        float: left;
+        width: 50%;
+        padding-right: 30px;
+        box-sizing: border-box;
+        text-align: right;
+        > a {
+          width: 100px;
+          height: 44px;
+          border-radius: 4px;
+          line-height: 44px;
+          display: inline-block;
+          text-align: center;
+          color: #fff;
+          margin-right: 20px;
+          font-size: 14px;
+          background: #4895ea;
+          vertical-align: bottom;
+        }
+        span {
+          display: inline-block;
+          width: 100px;
+          height: 44px;
+          line-height: 44px;
+          text-align: center;
+        }
+      }
+    }
+    /*内容*/
+    .index {
+      width: 1200px;
+      overflow: hidden;
+      .index-conts {
+        width: 2400px;
+        transition-duration: 0.2s;
+        .index-tab-list {
+          width: 50%;
+          float: left;
+          background: #fff;
+          // 交易列表
+          .index-table {
+            min-height: 480px;
+            > table {
+              width: 100%;
+              border-top: 1px solid #eee;
+              border-left: 1px solid #eee;
+              border-right: 1px solid #eee;
+              th {
+                font-size: 16px;
+                height: 66px;
+                line-height: 66px;
+                border-bottom: 1px solid #eee;
+                position: relative;
+                }
+              td {
+                height: 76px;
+                line-height: 76px;
+                text-align: center;
+                vertical-align: bottom;
+                border-bottom: 1px solid #eee;
+                position: relative;
+                button, a {
+                  width: 80px;
+                  height: 30px;
+                  border-radius: 4px;
+                  outline: none;
+                  cursor: pointer;
+                  background: #4895ea;
+                  color: #fff;
+                  line-height: 1;
+                  border: 0;
+                }
+                a {
+                  display: inline-block;
+                  line-height: 30px !important;
+                }
+              }
+            }
+            .none {
+              line-height: 200px;
+              font-size: 16px;
+              text-align: center;
+            }
+          }
+          .index-page {
+            margin: 20px 0;
+            text-align: center;
+          }
+        }
+      }
+    }
+  }
+  // 申请交易员
+  .trader-prpmpt {
+    position: fixed;
+    top: 0;
+    right: 0;
+    z-index: 6;
+    width: 400px;
+    height: 100%;
+    background: #fff;
+    transition-duration: 0.2s;
+    box-shadow: 0 3px 9px 0 rgba(69, 112, 128, 0.14);
+    transform: translateX(110%);
+    .trader-header {
+      height: 40px;
+      background: #f8f8f8;
+      line-height: 40px;
+      text-align: center;
+      font-size: 14px;
+      position: relative;
+      > span {
+        font-weight: bolder;
+      }
+      > i {
+        position: absolute;
+        top: 0;
+        right: 20px;
+        font-size: 18px;
+        cursor: pointer;
+      }
+    }
+    .trader-content {
+        padding: 20px 20px 0;
+      >li {
+        margin-bottom: 30px;
+        >h6 {
+          font-size: 16px;
+          font-weight: normal;
+          height: 30px;
+          line-height: 30px;
+        }
+        >p {
+          font-size: 14px;
+          line-height: 24px;
+        }
+      }
+    }
+    /*按钮*/
+    .btns {
+      text-align: center;
+      .checkbox {
+        line-height: 30px;
+        margin: 14px 0;
+        .ivu-checkbox-wrapper {
+          font-size: 14px;
+        }
+      }
+      .apply {
+        width: 40%;
+        height: 40px;
+        line-height: 40px;
+        background: #fff;
+        text-align: center;
+        color: #b4b4b4;
+        font-size: 16px;
+        border: 1px solid #ccc;
+        margin: 0 auto;
+        cursor: pointer;
+      }
+      .agreed {
+        background: #0088f1;
+        color: #fff;
+      }
+    }
+  }
+  .traderPopup {
+    transform: translateX(0%);
+  }
+</style>

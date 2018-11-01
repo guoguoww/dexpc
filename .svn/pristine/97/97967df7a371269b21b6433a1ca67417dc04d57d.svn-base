@@ -1,0 +1,37 @@
+.lan {
+  color: #167bc8 !important;
+}
+
+.lv {
+  color: #098a3e !important;
+}
+
+.huang {
+  color: #f4f100 !important;
+}
+
+.hong {
+  color: #c31e36 !important;
+}
+
+.damage {
+  background: #c31e36 !important;
+}
+
+.surplus {
+  background: #00802b !important;
+}
+.tabactive{
+    background: #4895ea !important;
+    color: #fff;
+}
+.vertical-center-modal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  
+}
+.vertical-center-modal .ivu-modal {
+  top: 0;
+}

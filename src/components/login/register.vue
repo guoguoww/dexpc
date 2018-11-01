@@ -1,0 +1,272 @@
+<template>
+    <div>
+      <div id="sign">
+        <div class="sign">
+          <h3>欢迎注册</h3>
+          <!--注册填写内容-->
+          <div class="sign-list">
+            <ul>
+              <li class="clearfix">
+                <span>手机号码</span>
+                <input type="text" placeholder="" v-model="upload.mobile">
+              </li>
+              <li class="yzm clearfix">
+                <span>短信验证码</span>
+                <input type="text" placeholder="" v-model="upload.smsValidCode" @keyup.enter="register()">
+                <button @click="getCode()" :disabled='disabled' :class="{disabled: disabled}">{{isNaN(codetext) ? codetext : codetext + '秒'}}</button>
+              </li>
+              <li class="clearfix">
+                <span>密码</span>
+                <input type="password" placeholder="输入密码"  v-model="upload.password" @keyup.enter="register()">
+              </li>
+              <li class="clearfix">
+                <span>确认密码</span>
+                <input type="password" placeholder="确认密码" v-model="confirmPwd" @keyup.enter="register()">
+              </li>
+              <li class="clearfix">
+                <span>推荐码</span>
+                <input type="text" placeholder="推荐码" :readonly='readonly' v-model="upload.inviteCode" @keyup.enter="register()">
+              </li>
+            </ul>
+          </div>
+          <!--阅读协议-->
+          <div class="agreement">
+            <Checkbox v-model="readAgreement"> 我已阅读并同意DSDEX</Checkbox>
+            <router-link class="agreement_link" target="_blank" to="/about/5">《用户协议》</router-link>
+          </div>
+          <!--按钮区域-->
+          <div class="sign-but">
+            <button @click="register()">注册</button>
+            <span>已经注册？？ <router-link to="/login">登录</router-link></span>
+          </div>
+          <!--注册提醒-->
+          <ul class="list-item">
+            <!-- <li>• <span _ngcontent-c2="">验证邮件可能会被误判为垃圾邮件，请注意查收。</span></li> -->
+            <li>• <span _ngcontent-c2="">请妥善保存您的DSDEX账号及登录密码。</span></li>
+            <li>• <span _ngcontent-c2="">请勿和其他网站使用相同的登录密码。</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+</template>
+
+<script>
+  export default {
+    name: "register",
+    data() {
+      return {
+        upload: {
+          mobile: "", //手机
+          smsValidCode: "", //验证码
+          password: "", //密码
+          nationality: "", //国籍
+          inviteCode: this.$route.params.id || "", // 邀请码
+          terminal: "" //设备类型
+        },
+        disabled: false, //验证码按钮状态
+        timer: null, //验证码定时器
+        codetext: '获取验证码', //验证码文字信息
+        postCode: {
+          mobile: '', //手机号
+          type: 'reg'
+        },
+        confirmPwd: '', //确认密码
+        readAgreement: false, //是否阅读用户协议
+        readonly: false, //存在邀请码则不可修改
+      }
+    },
+    created() {
+      var u = navigator.userAgent;
+      if (u.indexOf("Android") > -1 || u.indexOf("Linux") > -1) {
+        //安卓手机
+        this.upload.terminal = 1;
+      } else if (u.indexOf("iPhone") > -1) {
+        //苹果手机
+        this.upload.terminal = 2;
+      } else {
+        //wap
+        this.upload.terminal = 3;
+      }
+    },
+    mounted() {
+      if (this.$route.params.id) {
+        this.readonly = true
+      }
+    },
+    methods: {
+      getCode() { //获取短信验证码
+        if (!this.upload.mobile) {
+          this.$Message.error('请输入手机号码');
+          return;
+        }
+        this.postCode.mobile = this.upload.mobile;
+        this.$axios({
+          url: "/api/sms/validate_code",
+          method: "post",
+          params: this.postCode
+        }).then(res=>{
+          if (res.data.errorCode === 0) {
+            this.$Message.success('发送成功');
+            this.disabled = true;
+            this.codetext = 60;
+            this.timer = setInterval(()=>{
+              if(this.codetext > 0 && this.codetext <= 60 > 0 && this.codetext <= 60){
+                this.codetext--
+              }else{
+                this.disabled = false
+                this.codetext = '获取验证码'
+                clearInterval(this.timer)
+                this.timer = null
+              }
+            },1000)
+          }
+        })
+      },
+      register() { //注册
+        if (!this.upload.mobile) {
+          this.$Message.warning("请输入手机号");
+          return;
+        }
+        if (!this.upload.smsValidCode) {
+          this.$Message.warning("请输入验证码");
+          return;
+        }
+        if (!this.upload.password) {
+          this.$Message.warning("请输入密码");
+          return;
+        }
+        if (this.confirmPwd !== this.upload.password) {
+          this.$Message.warning("两次输入密码不一致");
+          return;
+        }
+        if (!this.upload.inviteCode) {
+          this.$Message.warning("请输入邀请码");
+          return;
+        }
+        if(!this.readAgreement) {
+          this.$Message.warning("请先阅读用户协议");
+          return;
+        }
+        this.$axios({
+          url: "/api/user/register",
+          method: "post",
+          headers: {
+            "Content-Type": "application/json;charse=UTF-8"
+          },
+          data: this.upload
+        })
+          .then(res => {
+            if (res.data.errorCode === 0) {
+              this.$Message.success("注册成功");
+              this.$router.push('/login')
+            }
+          })
+          .catch(err => {
+            console.log(err);
+          });
+      },
+
+    },
+  }
+</script>
+
+<style scoped>
+  a:hover {
+    text-decoration: underline;
+  }
+  #sign {
+    width: 1200px;
+    margin: 0 auto;
+  }
+  .sign {
+    padding: 50px 0;
+    width: 520px;
+    margin: 0 auto;
+  }
+  h3 {
+    font-size: 28px;
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 70px;
+  }
+  /*注册填写内容*/
+  .sign-list ul li {
+    margin-bottom: 20px;
+  }
+  /*获取验证码按钮*/
+  .yzm {
+    position: relative;
+  }
+  .yzm button {
+    height: 30px;
+    background: #fff;
+    border: 0;
+    outline: 0;
+    position: absolute;
+    right: 30px;
+    top: 4px;
+    padding-left: 10px;
+    border-left: 1px solid #000;
+    cursor: pointer;
+  }
+  .sign-list ul li span {
+    display: inline-block;
+    width: 130px;
+    font-size: 14px;
+    letter-spacing: 2px;
+    float: left;
+    line-height: 40px;
+    text-align: right;
+    margin-right: 20px;
+  }
+  .sign-list ul li input {
+    width: 350px;
+    height: 38px;
+    border: 1px solid #868587;
+    border-radius: 4px;
+    padding-left: 10px;
+    outline: none;
+    color: #aaa;
+    float: left;
+  }
+  /*用户协议*/
+  .agreement {
+    text-align: center;
+    font-size: 14px;
+    margin: 20px 0;
+  }
+  .agreement .ivu-checkbox-wrapper {
+    font-size: 14px;
+    margin-right: 0;
+  }
+  .sign-but {
+    padding: 0 124px 45px;
+  }
+  /*按扭区域*/
+  .sign-but button {
+    width: 130px;
+    height: 40px;
+    background: #5b8fef;
+    outline: none;
+    cursor: pointer;
+    border-radius: 4px;
+    border: 0;
+    color: #c8d8fc;
+    margin-right: 20px;
+  }
+  /*注册提醒*/
+  .list-item {
+    line-height: 30px;
+    width: 700px;
+    color: #404040;
+    margin-left: 100px;
+    text-align: left;
+  }
+  .list-item span {
+    width: 600px;
+    display: inline-block;
+    text-align: left;
+    font-size: 15px;
+  }
+
+</style>
